@@ -19,7 +19,10 @@ async function meliFetch(path, accessToken, searchParams) {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new MeliApiError(res.status, body);
+  if (!res.ok) {
+    console.error(`[meli-mcp] Error de Mercado Libre en ${path}: status=${res.status} body=${JSON.stringify(body)}`);
+    throw new MeliApiError(res.status, body);
+  }
   return body;
 }
 
@@ -58,7 +61,10 @@ async function getAdsCampaignsSummary(accessToken, siteId, advertiserId, { dateF
   );
   const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}`, 'api-version': '2' } });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new MeliApiError(res.status, body);
+  if (!res.ok) {
+    console.error(`[meli-mcp] Error de Mercado Libre (ads) status=${res.status} body=${JSON.stringify(body)}`);
+    throw new MeliApiError(res.status, body);
+  }
   return body;
 }
 
