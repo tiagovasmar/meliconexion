@@ -51,6 +51,11 @@ async function verifyAccessToken(token) {
     token,
     clientId: MELI_APP_ID,
     scopes: ['read', 'offline_access'],
+    // requireBearerAuth exige que el token tenga fecha de expiración numérica.
+    // No conocemos la expiración real del token de Mercado Libre acá (solo tenemos el string),
+    // así que usamos una ventana conservadora; si el token real ya expiró, meli.getMe()
+    // de todos modos va a fallar en la próxima verificación (cuando venza el cache de 2 min).
+    expiresAt: Math.floor(Date.now() / 1000) + 3000,
     extra: { sellerId: me.id, nickname: me.nickname }
   };
   tokenCache.set(token, authInfo);
@@ -93,27 +98,6 @@ const resourceMetadataUrl = getOAuthProtectedResourceMetadataUrl(mcpUrl);
 const bearerAuth = requireBearerAuth({ verifier: provider, resourceMetadataUrl });
 
 app.all('/mcp', bearerAuth, async (req, res) => {
-  console.log(
-    `[meli-mcp] ${req.method} /mcp accept=${req.headers.accept} content-type=${req.headers['content-type']} body=${JSON.stringify(
-      req.body
-    )}`
-  );
-  const origJson = res.json.bind(res);
-  const origWrite = res.write.bind(res);
-  const origEnd = res.end.bind(res);
-  res.json = (body) => {
-    console.log(`[meli-mcp] respondiendo status=${res.statusCode} json=${JSON.stringify(body).slice(0, 500)}`);
-    return origJson(body);
-  };
-  res.write = (chunk, ...rest) => {
-    console.log(`[meli-mcp] write status=${res.statusCode} chunk=${String(chunk).slice(0, 500)}`);
-    return origWrite(chunk, ...rest);
-  };
-  res.end = (chunk, ...rest) => {
-    if (chunk) console.log(`[meli-mcp] end status=${res.statusCode} chunk=${String(chunk).slice(0, 500)}`);
-    else console.log(`[meli-mcp] end status=${res.statusCode} (sin body)`);
-    return origEnd(chunk, ...rest);
-  };
   try {
     const { token, extra } = req.auth;
     const server = buildMcpServer({ accessToken: token, sellerId: extra.sellerId });
