@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: meli-mcp-connector
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: MELI_APP_ID
+        sync: false
+      - key: MELI_APP_SECRET
+        sync: false
+      - key: MELI_AUTH_DOMAIN
+        value: https://auth.mercadolibre.com.ar
+      - key: PUBLIC_URL
+        sync: false
+      - key: ALLOWED_SELLER_ID
+        sync: false
