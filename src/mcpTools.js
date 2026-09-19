@@ -300,3 +300,74 @@ function buildMcpServer({ accessToken, sellerId }) {
         'costo de envíos, gasto en publicidad, percepciones impositivas y total facturado. ' +
         'Si no se especifica "period_key", usa el período más reciente disponible.',
       inputSchema: {
+                period_key: z
+          .string()
+          .optional()
+          .describe('Período a consultar en formato YYYY-MM-01 (primer día del mes). Si se omite, se usa el más reciente.')
+      }
+    },
+    async ({ period_key }) => {
+      let key = period_key;
+      if (!key) {
+        const periods = await meli.getBillingPeriods(accessToken, { limit: 1 });
+        key = periods.results?.[0]?.key;
+        if (!key) {
+          return { content: [{ type: 'text', text: JSON.stringify({ note: 'No hay períodos de facturación disponibles.' }, null, 2) }] };
+        }
+      }
+      const summary = await meli.getBillingSummary(accessToken, key);
+      return { content: [{ type: 'text', text: JSON.stringify(summary, null, 2) }] };
+    }
+  );
+
+  server.registerTool(
+    'meli_visits_summary',
+    {
+      title: 'Visitas a las publicaciones',
+      description: 'Total de visitas que recibieron todas las publicaciones del vendedor en un rango de fechas (máximo 150 días).',
+      inputSchema: {
+        date_from: z.string().describe('Fecha de inicio en formato YYYY-MM-DD'),
+        date_to: z.string().describe('Fecha de fin en formato YYYY-MM-DD')
+      }
+    },
+    async ({ date_from, date_to }) => {
+      const data = await meli.getUserVisits(accessToken, sellerId, { dateFrom: date_from, dateTo: date_to });
+      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+    }
+  );
+
+  server.registerTool(
+    'meli_recent_questions',
+    {
+      title: 'Preguntas recientes de compradores',
+      description:
+        'Trae las preguntas más recientes que hicieron compradores en las publicaciones, con su respuesta si la tiene. ' +
+        'Útil para detectar dudas repetidas y mejorar la información de las publicaciones.',
+      inputSchema: {
+        status: z.enum(['ANSWERED', 'UNANSWERED']).optional().describe('Filtrar por preguntas respondidas o sin responder.'),
+        offset: z.number().int().min(0).default(0),
+        limit: z.number().int().min(1).max(50).default(20)
+      }
+    },
+    async ({ status, offset, limit }) => {
+      const data = await meli.getReceivedQuestions(accessToken, { offset, limit, status });
+      const questions = (data.questions || []).map((q) => ({
+        id: q.id,
+        item_id: q.item_id,
+        date_created: q.date_created,
+        status: q.status,
+        pregunta: q.text,
+        respuesta: q.answer?.text || null
+      }));
+      return {
+        content: [
+          { type: 'text', text: JSON.stringify({ total: data.total, returned: questions.length, questions }, null, 2) }
+        ]
+      };
+    }
+  );
+
+  return server;
+}
+
+module.exports = { buildMcpServer };
