@@ -93,18 +93,39 @@ const resourceMetadataUrl = getOAuthProtectedResourceMetadataUrl(mcpUrl);
 const bearerAuth = requireBearerAuth({ verifier: provider, resourceMetadataUrl });
 
 app.all('/mcp', bearerAuth, async (req, res) => {
+  console.log(
+    `[meli-mcp] ${req.method} /mcp accept=${req.headers.accept} content-type=${req.headers['content-type']} body=${JSON.stringify(
+      req.body
+    )}`
+  );
+  const origJson = res.json.bind(res);
+  const origWrite = res.write.bind(res);
+  const origEnd = res.end.bind(res);
+  res.json = (body) => {
+    console.log(`[meli-mcp] respondiendo status=${res.statusCode} json=${JSON.stringify(body).slice(0, 500)}`);
+    return origJson(body);
+  };
+  res.write = (chunk, ...rest) => {
+    console.log(`[meli-mcp] write status=${res.statusCode} chunk=${String(chunk).slice(0, 500)}`);
+    return origWrite(chunk, ...rest);
+  };
+  res.end = (chunk, ...rest) => {
+    if (chunk) console.log(`[meli-mcp] end status=${res.statusCode} chunk=${String(chunk).slice(0, 500)}`);
+    else console.log(`[meli-mcp] end status=${res.statusCode} (sin body)`);
+    return origEnd(chunk, ...rest);
+  };
   try {
     const { token, extra } = req.auth;
     const server = buildMcpServer({ accessToken: token, sellerId: extra.sellerId });
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
     res.on('close', () => {
       transport.close();
       server.close();
     });
-    await server.connect(transport);
-    await transport.handleRequest(req, res, req.body);
   } catch (err) {
-    console.error('Error manejando request MCP:', err);
+    console.error('[meli-mcp] Error manejando request MCP:', err);
     if (!res.headersSent) {
       res.status(500).json({ jsonrpc: '2.0', error: { code: -32603, message: 'Internal server error' }, id: null });
     }
