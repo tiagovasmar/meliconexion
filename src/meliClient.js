@@ -69,13 +69,16 @@ async function getAdsCampaignsSummary(accessToken, siteId, advertiserId, { dateF
 }
 
 /** Períodos de facturación disponibles (últimos meses). */
-async function getBillingPeriods(accessToken, { documentType = 'BILL', limit = 3 } = {}) {
-  return meliFetch('/billing/integration/monthly/periods', accessToken, { document_type: documentType, limit });
+async function getBillingPeriods(accessToken, { documentType = 'BILL', group = 'ML', limit = 3 } = {}) {
+  return meliFetch('/billing/integration/monthly/periods', accessToken, { document_type: documentType, group, limit });
 }
 
 /** Resumen de cargos/bonificaciones de un período de facturación (incluye gasto en Ads, comisiones, envíos). */
-async function getBillingSummary(accessToken, key) {
-  return meliFetch(`/billing/integration/periods/key/${key}/summary/details`, accessToken);
+async function getBillingSummary(accessToken, key, { documentType = 'BILL', group = 'ML' } = {}) {
+  return meliFetch(`/billing/integration/periods/key/${key}/summary/details`, accessToken, {
+    document_type: documentType,
+    group
+  });
 }
 
 /** Visitas totales a las publicaciones del vendedor en un rango de fechas. */
