@@ -123,6 +123,34 @@ vez alguien más conecta un token, no puede leer tus datos.
 - Claude: los custom connectors están disponibles en todos los planes; el
   plan gratuito de Claude permite un solo conector personalizado.
 
+## Conectar también Codex
+
+Esta opción mantiene el conector de Claude. Codex se autoriza por separado, con
+las mismas herramientas de solo lectura.
+
+1. En Mercado Libre, verificá que **Use PKCE** esté activado para esta aplicación.
+   Agregá `https://TU-URL.onrender.com/codex/callback` a sus URIs de redirect,
+   conservando `https://claude.ai/api/mcp/auth_callback`. La URI nueva debe
+   coincidir exactamente con `PUBLIC_URL` más `/codex/callback`.
+2. En Codex, ejecutá:
+
+   ```sh
+   codex mcp add panel-meli --url https://TU-URL.onrender.com/mcp --oauth-client-id TU_APP_ID-codex
+   ```
+
+   Copiá la **OAuth callback URL** que muestra Codex. Es una dirección local
+   `http://127.0.0.1/callback/...`; el puerto se elige al iniciar sesión.
+3. En Render, configurá `CODEX_CALLBACK_URL` con esa URL local exacta y
+   desplegá la nueva versión del servidor. Nunca cargues el Client Secret
+   en Codex: el servidor lo usa internamente al intercambiar los códigos.
+4. Ejecutá `codex mcp login panel-meli` y completá la autorización de
+   Mercado Libre. Reiniciá Codex para ver las herramientas.
+
+Codex se registra como cliente público con PKCE; por eso esta opción requiere
+que PKCE esté habilitado en la aplicación de Mercado Libre. El servidor usa una
+URI HTTPS fija para Mercado Libre y devuelve el resultado al callback local
+de Codex. El token de Claude no se comparte con Codex.
+
 ## Revocar el acceso
 
 - Desde Mercado Libre: "Mis aplicaciones" → tu app → revocar autorización del

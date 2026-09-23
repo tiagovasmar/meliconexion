@@ -7,12 +7,14 @@ const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/ser
 const meli = require('./meliClient.js');
 const tokenCache = require('./tokenCache.js');
 const { buildMcpServer } = require('./mcpTools.js');
+const { createCodexBridge, CODEX_CALLBACK_PATH } = require('./codexAuth.js');
 
 const {
   MELI_APP_ID,
   MELI_APP_SECRET,
   MELI_AUTH_DOMAIN = 'https://auth.mercadolibre.com.ar',
   PUBLIC_URL,
+  CODEX_CALLBACK_URL,
   ALLOWED_SELLER_ID,
   PORT = 3000
 } = process.env;
@@ -74,15 +76,34 @@ const provider = new ProxyOAuthServerProvider({
     tokenUrl: 'https://api.mercadolibre.com/oauth/token'
   },
   verifyAccessToken,
-  getClient: async (clientId) => (clientId === MELI_APP_ID ? meliClientInfo : undefined)
+  getClient: async (clientId) => {
+    if (clientId === MELI_APP_ID) return meliClientInfo;
+    if (codexBridge && clientId === codexBridge.codexClientId) return codexBridge.codexClient;
+    return undefined;
+  }
 });
 provider.skipLocalPkceValidation = true; // Mercado Libre valida PKCE (si está habilitado) del lado suyo
+
+// Codex usa un cliente público con PKCE. El secret de Mercado Libre permanece
+// solamente en este servidor; Mercado Libre recibe un callback HTTPS fijo.
+const codexBridge = CODEX_CALLBACK_URL
+  ? createCodexBridge({
+      appId: MELI_APP_ID,
+      appSecret: MELI_APP_SECRET,
+      authDomain: MELI_AUTH_DOMAIN,
+      publicUrl: PUBLIC_URL,
+      callbackUrl: CODEX_CALLBACK_URL,
+      upstreamClient: meliClientInfo,
+      provider
+    })
+  : null;
 
 const app = express();
 // '1' = confiar solo en el primer proxy (el balanceador del hosting). Necesario para que
 // el rate limiting interno del router de auth identifique IPs reales correctamente.
 app.set('trust proxy', 1);
 app.use(express.json());
+if (codexBridge) app.get(CODEX_CALLBACK_PATH, codexBridge.handleCallback);
 
 app.use(
   mcpAuthRouter({
@@ -129,4 +150,7 @@ app.listen(PORT, () => {
   console.log(`PUBLIC_URL: ${PUBLIC_URL}`);
   console.log(`MCP endpoint: ${mcpUrl.href}`);
   console.log(`Callback que debe estar registrado en la app de Mercado Libre: ${CLAUDE_CALLBACK}`);
+  if (codexBridge) {
+    console.log(`Callback adicional que debe estar registrado en Mercado Libre: ${codexBridge.upstreamCallback}`);
+  }
 });

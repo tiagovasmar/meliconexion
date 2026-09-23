@@ -14,5 +14,7 @@ services:
         value: https://auth.mercadolibre.com.ar
       - key: PUBLIC_URL
         sync: false
+      - key: CODEX_CALLBACK_URL
+        sync: false
       - key: ALLOWED_SELLER_ID
         sync: false
